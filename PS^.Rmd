@@ -1,0 +1,157 @@
+---
+title: "PS6"
+author: "Shlok Shetty"
+date: "2023-11-27"
+output: html_document
+---
+```{r}
+#1.1
+library(tidyverse)
+
+co2dataset <- read_delim("Downloads/scripps-co2.csv.bz2")
+co2data <- co2dataset %>% 
+  select(year, month, co2)
+co2data
+```
+
+1.2
+A line in this data set repersenst a how much co2 emmision there was every month since 1958
+
+
+1.3
+missing values are coded as -99.99 into this data set
+
+
+```{r}
+#1.1.4
+cat("The time period is between", min(co2data$year), "and", max(co2data$year), "\n")
+```
+
+```{r}
+#1.1.5
+co2data %>% 
+  filter(co2 != -99.99) %>% 
+  group_by(year, co2) %>% 
+  ggplot(aes(year, co2)) +
+  geom_line()
+
+```
+
+
+1.1.6
+It has grown to what looks like at a near exponensial rate
+
+
+```{r}
+#1.2.1
+DiffInTemp <- read_delim("Downloads/hadcrut-5.0.1.0-annual.csv.bz2")
+temp <- DiffInTemp %>% 
+  select(Time, `Anomaly (deg C)`)
+temp
+```
+
+1.2.2?
+From the year 1850 to 2023 the anomly of tempreture reletive to the average tempreture from 1961 to 1990
+
+```{r}
+#1.2.3
+cat("The time period is between", min(temp$Time), "and", max(temp$Time), "\n")
+```
+```{r} 
+#1.2.4
+pre1900 <- temp %>% 
+  filter(Time <= 1900) 
+pre <- mean(pre1900$`Anomaly (deg C)`) 
+pre  
+temp <- mutate(temp, pre_indust = `Anomaly (deg C)` - pre)
+temp
+```
+```{r}
+#1.2.5
+temp %>% 
+  group_by(Time, pre_indust) %>% 
+  ggplot(aes(Time, pre_indust)) + 
+  geom_point()
+```
+
+1.2.6
+It goes up and down but it looks like half a parobola where over time it just gorws expenontially  Steadily gowing, huge boom in 1960 on how it grew 
+
+
+
+
+1.3.1
+The merge key would be the year as it is something both data sets can share. Even though one is split into months and the other ids year we can solve that by getting the total amount of co2 for the year
+
+1.3.2
+The way we can merge these data sets is if we can get the total amount of co2 for the year without the -99.9 as they are nas so we can compare it
+```{r}
+#1.3.3
+co2datamerge <- co2data %>% 
+  filter(co2 != -99.99) %>% 
+ group_by(year)  
+newco2data <- co2datamerge %>% 
+  summarize(co2total = mean(co2))
+newco2data
+mergedData <- left_join(newco2data, temp, by = c("year" = "Time"))
+mergedData
+
+```
+```{r}
+
+#1.3.4
+mergedData %>% 
+  mutate(decade = (year%/%10)*10) %>% 
+  ggplot(aes(co2total, pre_indust,  col = decade))+
+  geom_smooth(method = "lm", se = FALSE, col = "grey", formula = y ~ x)+
+  geom_hline(yintercept = 1.5, linetype = "solid", col = "black")+
+  geom_point()+
+  labs(x = "CO2 Concentration(ppm)", y = "Temperature anomoly (w.r.t 1850-1900 average)") 
+```
+
+```{r}
+#2.1
+uah <- read_delim("Downloads/UAH-lower-troposphere-wide.csv.bz2") %>%
+  select(year, month, globe)
+uah
+```
+```{r}
+#2.2
+grouped <- uah %>% 
+  group_by(year)
+yearlyavg <- grouped %>% 
+  summarize(GlobeYearlyAvg = mean(globe))
+yearlyavg
+```
+```{r}
+#2.3
+uahXhadcrut <- left_join(yearlyavg, temp, by = c("year" = "Time"))%>% 
+  select(year, GlobeYearlyAvg, pre_indust)
+uahXhadcrut
+
+```
+ 
+
+2.4
+the data is wide form
+
+```{r}
+#2.5
+uahXhadcrutLong <- uahXhadcrut %>%
+  set_names("year", "lower troposphere","surface") %>%
+  pivot_longer(!year, names_to="type", values_to="anomaly")
+uahXhadcrutLong 
+```
+```{r}
+#2.6
+anomolyavg <- mean(uahXhadcrutLong$anomaly)
+uahXhadcrutLong %>% 
+  mutate(uahXhadcrutLong,anomdiff  = anomaly - anomolyavg) %>% 
+  ggplot(aes(year, anomdiff , color=type)) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE)
+anomolyavg
+```
+
+
+
